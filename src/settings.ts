@@ -226,15 +226,6 @@ export class DiscordSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Test connection")
-			.setDesc("Debug: runs the channel-list request directly and shows Discord's raw HTTP status and response.")
-			.addButton((button) =>
-				button.setButtonText("Test").onClick(async () => {
-					await this.plugin.testConnection();
-				}),
-			);
-
-		new Setting(containerEl)
 			.setName("Verify bot identity")
 			.setDesc("Checks the token works AND that the bot can see this server. Shows the bot's Discord user ID so you can match it to the member list.")
 			.addButton((button) =>

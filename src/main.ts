@@ -1,5 +1,5 @@
 import { Notice, Plugin, requestUrl, TFile, normalizePath } from "obsidian";
-import { DiscordApiError, DiscordClient, DiscordMessage, USER_AGENT } from "./discord";
+import { DiscordApiError, DiscordClient, DiscordMessage } from "./discord";
 import { renderBody, renderNoteHeader, sanitizeFilename } from "./renderer";
 import { DEFAULT_SETTINGS, DiscordSettingTab, DiscordSettings } from "./settings";
 
@@ -131,33 +131,6 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		this.settings.syncState = {};
 		await this.saveSettings();
 		new Notice("Sync state cleared. The next sync will re-pull and rewrite the channel notes.");
-	}
-
-	/** Debug: run the exact channel-list request and show the raw status + response body. */
-	async testConnection(): Promise<void> {
-		const { token, guildId } = this.settings;
-		if (!token || !guildId) {
-			new Notice("Set the bot token and server ID first.");
-			return;
-		}
-		try {
-			const res = await requestUrl({
-				url: `https://discord.com/api/v10/guilds/${guildId}/channels`,
-				method: "GET",
-				headers: { Authorization: `Bot ${token}`, "User-Agent": USER_AGENT },
-				throw: false,
-			});
-			console.log(`[discord-to-obsidian] test connection: HTTP ${res.status}\n${res.text}`);
-			new Notice(
-				`GET /guilds/${guildId}/channels\n` +
-					`HTTP ${res.status}\n\n` +
-					`token in use starts: "${token.slice(0, 6)}…" (${token.length} chars)\n\n` +
-					`${res.text.slice(0, 300)}`,
-				20000,
-			);
-		} catch (e) {
-			new Notice(`Request failed before any response: ${e.message}`, 15000);
-		}
 	}
 
 	/**
