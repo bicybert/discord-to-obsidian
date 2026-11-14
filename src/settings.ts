@@ -61,7 +61,12 @@ export class DiscordSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 				text.inputEl.type = "password";
-			});
+			})
+			.addButton((button) =>
+				button.setButtonText("Invite bot").setCta().onClick(async () => {
+					await this.plugin.inviteBot();
+				}),
+			);
 
 		new Setting(containerEl)
 			.setName("Server")
@@ -189,12 +194,12 @@ export class DiscordSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Verify bot identity")
-			.setDesc("Checks the token works AND that the bot can see this server.")
+			.setDesc("Checks the token works AND that the bot can see this server. Shows the bot's Discord user ID so you can match it to the member list.")
 			.addButton((button) =>
 				button.setButtonText("Boot").onClick(async () => {
 					const result = await this.plugin.bootBot();
 					if (result.ok) {
-						new Notice(`Bot verified: ${result.who} — can access "${result.guild}"`);
+						new Notice(`Bot verified: ${result.who} (ID ${result.id}) — can access "${result.guild}"`);
 					} else {
 						new Notice(`Boot failed — ${result.error}`);
 					}

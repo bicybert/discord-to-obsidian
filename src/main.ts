@@ -1,5 +1,5 @@
 import { Notice, Plugin, requestUrl, TFile, normalizePath } from "obsidian";
-import { DiscordApiError, DiscordClient, DiscordMessage } from "./discord";
+import { DiscordApiError, DiscordClient, DiscordMessage, USER_AGENT } from "./discord";
 import { renderBody, renderNoteHeader, sanitizeFilename } from "./renderer";
 import { DEFAULT_SETTINGS, DiscordSettingTab, DiscordSettings } from "./settings";
 
@@ -47,6 +47,11 @@ export default class DiscordToObsidianPlugin extends Plugin {
 			name: "Verify Discord bot identity",
 			callback: () => this.bootBot(),
 		});
+		this.addCommand({
+			id: "invite-discord-bot",
+			name: "Invite bot to a server",
+			callback: () => this.inviteBot(),
+		});
 	}
 
 	onunload(): void {}
@@ -59,7 +64,8 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	/** Fetch every server the bot is in, so the user can pick one from a dropdown. */
+	/** Fetch every server the bot is in, auto-pick one if the configured ID is
+	 * stale/missing, and load its channels right away. */
 	async loadServerList(): Promise<void> {
 		if (!this.settings.token) {
 			new Notice("Set your bot token first.");
@@ -74,11 +80,24 @@ export default class DiscordToObsidianPlugin extends Plugin {
 			}
 			this.settings.guilds = next;
 			await this.saveSettings();
-			new Notice(
-				guilds.length > 0
-					? `Found ${guilds.length} server(s) — pick one from the dropdown.`
-					: "The bot isn't in any server yet. Invite it with the OAuth2 URL first.",
-			);
+
+			if (guilds.length === 0) {
+				new Notice("The bot isn't in any server yet. Invite it with the OAuth2 URL first.");
+				return;
+			}
+
+			// The configured server is gone (bot removed) or was mistyped —
+			// auto-pick the first one and load its channels immediately.
+			if (!this.settings.guildId || !next[this.settings.guildId]) {
+				const first = guilds[0];
+				this.settings.guildId = first.id;
+				this.settings.channels = {};
+				await this.saveSettings();
+				new Notice(`Picked "${next[first.id]}" — loading channels…`);
+				await this.loadChannelList();
+			} else {
+				new Notice(`Found ${guilds.length} server(s) — channels will load when you pick one.`);
+			}
 		} catch (e) {
 			new Notice(`Could not load servers: ${describeApiError(e)}`);
 		}
@@ -125,7 +144,7 @@ export default class DiscordToObsidianPlugin extends Plugin {
 			const res = await requestUrl({
 				url: `https://discord.com/api/v10/guilds/${guildId}/channels`,
 				method: "GET",
-				headers: { Authorization: `Bot ${token}` },
+				headers: { Authorization: `Bot ${token}`, "User-Agent": USER_AGENT },
 				throw: false,
 			});
 			console.log(`[discord-to-obsidian] test connection: HTTP ${res.status}\n${res.text}`);
@@ -146,21 +165,64 @@ export default class DiscordToObsidianPlugin extends Plugin {
 	 * actually see the configured server (guild access). Returns a result
 	 * object rather than throwing so callers can branch on it.
 	 */
-	async bootBot(): Promise<{ ok: boolean; who?: string; guild?: string; error?: string }> {
+	async bootBot(): Promise<{ ok: boolean; who?: string; id?: string; guild?: string; error?: string; servers?: string[] }> {
 		const { token, guildId } = this.settings;
 		if (!token || !guildId) {
 			return { ok: false, error: "Set your bot token and server ID first." };
 		}
+		const client = new DiscordClient(token);
 		try {
-			const client = new DiscordClient(token);
 			const me = await client.getMe();
 			const who = me.bot ? `${me.username} (bot)` : `${me.username} (user)`;
 			const guild = (await client.getGuild(guildId)).name;
-			return { ok: true, who, guild };
+			return { ok: true, who, id: me.id, guild };
 		} catch (e) {
-			return { ok: false, error: describeApiError(e) };
+			// If the configured server is inaccessible, list the ones the bot
+			// CAN see — that's the most useful thing to show the user.
+			let servers: string[] = [];
+			try {
+				const guilds = await client.listGuilds();
+				servers = guilds.map((g) => `${g.name} (${g.id})`);
+			} catch {
+				/* ignore — the original error is what matters */
+			}
+			const base = describeApiError(e);
+			return {
+				ok: false,
+				error: servers.length
+					? `${base}\n\nThe bot is in: ${servers.join(", ")}. Pick one of these as the Server ID.`
+					: base,
+				servers,
+			};
 		}
 	}
+
+/** Open the Discord Developer Portal so the user can re-invite the bot. */
+		inviteBot(): void {
+			const { token } = this.settings;
+			if (!token) {
+				new Notice("Set your bot token first.");
+				return;
+			}
+			const portalUrl = "https://discord.com/developers/applications";
+			new Notice(
+				"Open the Developer Portal, copy your bot's Application ID, and invite it:\n\n" +
+				`1. Go to ${portalUrl}\n` +
+				"2. Click your application → OAuth2 → URL Generator\n" +
+				"3. Check the 'bot' scope, grant View Channels + Read Message History\n" +
+				"4. Open the URL and invite the bot to your server\n\n" +
+				'Then come back and click "Load server list".',
+				30000,
+			);
+			// Try opening the portal directly; fall back to just showing the notice.
+			try {
+				// obsidian's openExternal is the supported way to open URLs.
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				(this.app as any).openExternal?.(portalUrl);
+			} catch {
+				/* ignore — the notice above is enough */
+			}
+		}
 
 	/** Debug: fetch channels for every known server, write a copyable report file, and summarize in a Notice. */
 	async diagnoseServers(): Promise<void> {

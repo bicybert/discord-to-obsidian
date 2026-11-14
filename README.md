@@ -62,6 +62,8 @@ Discord/attachments/          ← customizable root
    - Read Message History
 5. Open the generated URL and invite the bot to your server.
 
+> **Bots don't run locally.** A Discord bot is hosted by Discord — once you invite it via the OAuth2 URL it's online and stays up on its own. There's nothing to start or stop from Obsidian. If the bot looks offline in Discord, it means it wasn't invited, was removed, or its token was reset. Use the **Invite bot** button in the plugin settings to re-open the portal.
+
 ### 2. Build and install the plugin
 
 ```sh
@@ -94,6 +96,7 @@ Optional checks before syncing: **Boot** verifies the token and server access, a
 - First sync pulls the most recent **Initial message limit** (default 500) messages per channel. Every sync after that only fetches new messages.
 - Only regular text channels are synced (forum/thread channels are skipped in this version).
 - Do **not** use a user token (self-botting) — it violates Discord's ToS and can get your account banned.
+- **Verify the bot is online** before syncing: click **Boot** in the plugin settings (or run **Verify Discord bot identity** from the command palette). It shows the bot's Discord user ID and name — match that ID to the member list in your server to confirm it's the right bot. If Boot fails, click **Invite bot** to re-open the Developer Portal and re-invite it.
 
 ## Development
 

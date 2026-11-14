@@ -1,6 +1,9 @@
 import { requestUrl } from "obsidian";
 
 const API_BASE = "https://discord.com/api/v10";
+// Discord's documented User-Agent format for bot API clients. Sending Obsidian's
+// default UA gets requests blocked by Discord's anti-automation layer (error 40333).
+export const USER_AGENT = "DiscordBot (https://github.com/bicybert/discord-to-obsidian, 0.1.0)";
 const PAGE_SIZE = 100;
 const MAX_RETRIES = 3;
 
@@ -80,7 +83,7 @@ export class DiscordClient {
 				res = await requestUrl({
 					url: `${API_BASE}${path}`,
 					method: opts.method ?? "GET",
-					headers: { Authorization: `Bot ${this.token}` },
+					headers: { Authorization: `Bot ${this.token}`, "User-Agent": USER_AGENT },
 					body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
 					contentType: opts.body !== undefined ? "application/json" : undefined,
 					throw: false,
