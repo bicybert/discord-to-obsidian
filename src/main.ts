@@ -59,9 +59,34 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	/** Fetch every server the bot is in, so the user can pick one from a dropdown. */
+	async loadServerList(): Promise<void> {
+		if (!this.settings.token) {
+			new Notice("Set your bot token first.");
+			return;
+		}
+		try {
+			const client = new DiscordClient(this.settings.token);
+			const guilds = await client.listGuilds();
+			const next: Record<string, string> = {};
+			for (const guild of guilds) {
+				next[guild.id] = guild.name;
+			}
+			this.settings.guilds = next;
+			await this.saveSettings();
+			new Notice(
+				guilds.length > 0
+					? `Found ${guilds.length} server(s) — pick one from the dropdown.`
+					: "The bot isn't in any server yet. Invite it with the OAuth2 URL first.",
+			);
+		} catch (e) {
+			new Notice(`Could not load servers: ${describeApiError(e)}`);
+		}
+	}
+
 	async loadChannelList(): Promise<void> {
 		if (!this.settings.token || !this.settings.guildId) {
-			new Notice("Set your bot token and server ID first.");
+			new Notice("Set your bot token and pick a server first.");
 			return;
 		}
 		try {

@@ -9,6 +9,8 @@ export interface ChannelSetting {
 export interface DiscordSettings {
 	token: string;
 	guildId: string;
+	/** guild id → name, populated by "Load server list" */
+	guilds: Record<string, string>;
 	outputFolder: string;
 	attachmentsFolder: string;
 	/** attachments go into a subfolder named after the channel they came from */
@@ -24,6 +26,7 @@ export interface DiscordSettings {
 export const DEFAULT_SETTINGS: DiscordSettings = {
 	token: "",
 	guildId: "",
+	guilds: {},
 	outputFolder: "Discord",
 	attachmentsFolder: "Discord/attachments",
 	organizeByChannel: true,
@@ -61,17 +64,35 @@ export class DiscordSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Server (guild) ID")
-			.setDesc(
-				"Enable Developer Mode in Discord (Settings → Advanced), then right-click your server → Copy Server ID.",
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder("123456789012345678")
+			.setName("Server")
+			.setDesc("Load the servers the bot is in, then pick one — the channel list loads automatically.")
+			.addDropdown((dropdown) => {
+				const guilds = Object.entries(this.plugin.settings.guilds);
+				dropdown.addOption("", "— pick a server —");
+				for (const [id, name] of guilds) {
+					dropdown.addOption(id, name);
+				}
+				dropdown
 					.setValue(this.plugin.settings.guildId)
-					.onChange(async (value) => {
-						this.plugin.settings.guildId = value.trim();
+					.setDisabled(guilds.length === 0)
+					.onChange(async (id) => {
+						if (!id || id === this.plugin.settings.guildId) return;
+						// Switching servers resets the channel selection.
+						this.plugin.settings.guildId = id;
+						this.plugin.settings.channels = {};
 						await this.plugin.saveSettings();
+						new Notice("Loading channels…");
+						await this.plugin.loadChannelList();
+						this.display();
+					});
+			})
+			.addButton((button) =>
+				button
+					.setButtonText("Load server list")
+					.setCta()
+					.onClick(async () => {
+						await this.plugin.loadServerList();
+						this.display();
 					}),
 			);
 

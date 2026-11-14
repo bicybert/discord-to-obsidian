@@ -117,6 +117,11 @@ export class DiscordClient {
 		return this.request(`/guilds/${guildId}`);
 	}
 
+	/** All servers the bot has been invited to. */
+	async listGuilds(): Promise<DiscordGuild[]> {
+		return this.request("/users/@me/guilds");
+	}
+
 	/** Who is this token? Returns the bot's username + id. */
 	async getMe(): Promise<DiscordUser> {
 		return this.request("/users/@me");

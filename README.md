@@ -82,9 +82,11 @@ Enable the plugin in Obsidian's **Settings → Community plugins**.
 In the plugin settings:
 
 1. Paste your **bot token**.
-2. Paste your **server (guild) ID** — enable Developer Mode in Discord (Settings → Advanced), then right-click your server → **Copy Server ID**.
-3. Click **Load channel list**, then toggle the channels you want to sync.
+2. Click **Load server list** — every server the bot has been invited to appears in a dropdown. Pick one.
+3. The channel list loads automatically; toggle the channels you want to sync.
 4. Click the ribbon icon (or run **Sync selected Discord channels** from the command palette).
+
+Optional checks before syncing: **Boot** verifies the token and server access, and **Send test message** posts a hello into your first enabled channel (needs the bot's Send Messages permission).
 
 ## Notes
 
