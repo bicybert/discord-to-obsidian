@@ -168,15 +168,24 @@ export class DiscordSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Verify bot identity")
-			.setDesc("Fetches the bot's own username from Discord to confirm the token works before syncing.")
+			.setDesc("Checks the token works AND that the bot can see this server.")
 			.addButton((button) =>
 				button.setButtonText("Boot").onClick(async () => {
 					const result = await this.plugin.bootBot();
 					if (result.ok) {
-						new Notice(`Bot verified: ${result.who}`);
+						new Notice(`Bot verified: ${result.who} — can access "${result.guild}"`);
 					} else {
 						new Notice(`Boot failed — ${result.error}`);
 					}
+				}),
+			);
+
+		new Setting(containerEl)
+			.setName("Send test message")
+			.setDesc("Posts a hello message to your first enabled channel. Needs the Send Messages permission on the bot.")
+			.addButton((button) =>
+				button.setButtonText("Send").onClick(async () => {
+					await this.plugin.sendTestMessage();
 				}),
 			);
 

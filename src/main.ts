@@ -117,20 +117,48 @@ export default class DiscordToObsidianPlugin extends Plugin {
 	}
 
 	/**
-	 * Boot step: verify the bot token works by fetching the bot's own identity.
-	 * Returns a result object rather than throwing so callers can branch on it.
+	 * Boot step: verify the token works (bot identity) and that the bot can
+	 * actually see the configured server (guild access). Returns a result
+	 * object rather than throwing so callers can branch on it.
 	 */
-	async bootBot(): Promise<{ ok: boolean; who?: string; error?: string }> {
-		const { token } = this.settings;
-		if (!token) {
-			return { ok: false, error: "Set your bot token first." };
+	async bootBot(): Promise<{ ok: boolean; who?: string; guild?: string; error?: string }> {
+		const { token, guildId } = this.settings;
+		if (!token || !guildId) {
+			return { ok: false, error: "Set your bot token and server ID first." };
 		}
 		try {
-			const me = await new DiscordClient(token).getMe();
+			const client = new DiscordClient(token);
+			const me = await client.getMe();
 			const who = me.bot ? `${me.username} (bot)` : `${me.username} (user)`;
-			return { ok: true, who };
+			const guild = (await client.getGuild(guildId)).name;
+			return { ok: true, who, guild };
 		} catch (e) {
 			return { ok: false, error: describeApiError(e) };
+		}
+	}
+
+	/** Prove the bot can act in the server: post a test message to the first enabled channel. */
+	async sendTestMessage(): Promise<void> {
+		const boot = await this.bootBot();
+		if (!boot.ok) {
+			new Notice(`Boot failed — ${boot.error}`);
+			return;
+		}
+		const firstEnabled = Object.entries(this.settings.channels).find(([, c]) => c.enabled);
+		if (!firstEnabled) {
+			new Notice("Enable at least one channel first — the test message will be posted there.");
+			return;
+		}
+		const [channelId, meta] = firstEnabled;
+		try {
+			const client = new DiscordClient(this.settings.token);
+			await client.sendMessage(
+				channelId,
+				`✅ Discord to Obsidian test message — ${new Date().toLocaleString()}`,
+			);
+			new Notice(`Test message posted to #${meta.name}. The bot is fully operational.`);
+		} catch (e) {
+			new Notice(`Failed to post test message: ${describeApiError(e)}`);
 		}
 	}
 

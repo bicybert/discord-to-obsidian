@@ -67,15 +67,20 @@ export function compareSnowflakes(a: string, b: string): number {
 export class DiscordClient {
 	constructor(private token: string) {}
 
-	private async request(path: string): Promise<any> {
+	private async request(
+		path: string,
+		opts: { method?: string; body?: unknown } = {},
+	): Promise<any> {
 		let delay = 1000;
 		for (let attempt = 0; ; attempt++) {
 			let res;
 			try {
 				res = await requestUrl({
 					url: `${API_BASE}${path}`,
-					method: "GET",
+					method: opts.method ?? "GET",
 					headers: { Authorization: `Bot ${this.token}` },
+					body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+					contentType: opts.body !== undefined ? "application/json" : undefined,
 					throw: false,
 				});
 			} catch (e) {
@@ -115,6 +120,14 @@ export class DiscordClient {
 	/** Who is this token? Returns the bot's username + id. */
 	async getMe(): Promise<DiscordUser> {
 		return this.request("/users/@me");
+	}
+
+	/** Post a message to a channel (needs the Send Messages permission). */
+	async sendMessage(channelId: string, content: string): Promise<DiscordMessage> {
+		return this.request(`/channels/${channelId}/messages`, {
+			method: "POST",
+			body: { content },
+		});
 	}
 
 	async listTextChannels(guildId: string): Promise<DiscordChannel[]> {
