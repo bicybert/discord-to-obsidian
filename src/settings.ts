@@ -144,6 +144,20 @@ export class DiscordSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName("Reset sync state")
+			.setDesc(
+				"Forget which messages were already synced. The next sync re-pulls everything and overwrites the channel notes (attachments are kept).",
+			)
+			.addButton((button) =>
+				button
+					.setButtonText("Reset")
+					.setWarning()
+					.onClick(async () => {
+						await this.plugin.resetSyncState();
+					}),
+			);
+
+		new Setting(containerEl)
 			.setName("Channels")
 			.setDesc("Load the text channels for this server, then toggle which ones to sync.")
 			.addButton((button) =>

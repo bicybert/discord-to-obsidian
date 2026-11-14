@@ -54,6 +54,13 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		}
 	}
 
+	/** Clear the per-channel resume points so the next sync does a full re-pull and rewrites the notes. */
+	async resetSyncState(): Promise<void> {
+		this.settings.syncState = {};
+		await this.saveSettings();
+		new Notice("Sync state cleared. The next sync will re-pull and rewrite the channel notes.");
+	}
+
 	async syncAll(): Promise<void> {
 		if (!this.settings.token || !this.settings.guildId) {
 			new Notice("Configure your Discord token and server ID in the plugin settings first.");
@@ -140,19 +147,28 @@ export default class DiscordToObsidianPlugin extends Plugin {
 			`${this.settings.outputFolder}/${sanitizeFilename(channelName)}.md`,
 		);
 		const body = renderBody(messages, userNames, channelNames, attachmentPaths);
+		const header = renderNoteHeader(channelName, guildName, channelId);
 		const existing = this.app.vault.getAbstractFileByPath(notePath);
-		if (existing instanceof TFile) {
-			// Append chronologically at the end of the existing note.
+
+		if (afterId === null) {
+			// Full re-sync: rewrite the whole note (fresh content, no duplicates).
+			if (existing instanceof TFile) {
+				await this.app.vault.modify(existing, header + body);
+			} else {
+				await this.app.vault.create(notePath, header + body);
+			}
+		} else if (existing instanceof TFile) {
+			// Incremental sync: append chronologically at the end of the note.
 			await this.app.vault.append(existing, "\n\n" + body);
 		} else {
-			await this.app.vault.create(
-				notePath,
-				renderNoteHeader(channelName, guildName, channelId) + body,
-			);
+			// State existed but the note is gone — rebuild it from this point forward.
+			await this.app.vault.create(notePath, header + body);
 		}
 
 		// Snowflake of the newest message becomes the resume point.
 		this.settings.syncState[channelId] = messages[messages.length - 1].id;
+		// Persist immediately so a crash mid-sync can't cause duplicate appends.
+		await this.saveSettings();
 		return messages.length;
 	}
 
