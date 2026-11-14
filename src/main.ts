@@ -162,7 +162,7 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		}
 	}
 
-	/** Debug: fetch channels for every known server and report pass/fail per server. */
+	/** Debug: fetch channels for every known server and report pass/fail per server, with IDs and raw response bodies. */
 	async diagnoseServers(): Promise<void> {
 		const guilds = Object.entries(this.settings.guilds);
 		if (guilds.length === 0) {
@@ -174,13 +174,16 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		for (const [id, name] of guilds) {
 			try {
 				const channels = await client.listTextChannels(id);
-				lines.push(`✅ ${name}: OK (${channels.length} text channels)`);
+				lines.push(`✅ ${name} (${id}): OK, ${channels.length} text channels`);
 			} catch (e) {
-				const status = e instanceof DiscordApiError ? `HTTP ${e.status}` : e.message;
-				lines.push(`❌ ${name}: ${status}`);
+				const apiErr = e instanceof DiscordApiError ? e : null;
+				const body = apiErr?.body ? `\n    ↳ body: ${apiErr.body.slice(0, 150)}` : "";
+				lines.push(
+					`❌ ${name} (${id}): ${apiErr ? `HTTP ${apiErr.status}` : e.message}${body}`,
+				);
 			}
 		}
-		new Notice(lines.join("\n"), 20000);
+		new Notice(lines.join("\n"), 25000);
 	}
 
 	/** Prove the bot can act in the server: post a test message to the first enabled channel. */

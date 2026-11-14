@@ -50,6 +50,8 @@ export class DiscordApiError extends Error {
 	constructor(
 		public status: number,
 		message: string,
+		/** Raw response body, for debugging who actually answered. */
+		public body?: string,
 	) {
 		super(message);
 	}
@@ -109,7 +111,7 @@ export class DiscordClient {
 		console.error(
 			`[discord-to-obsidian] ${res.status} on GET ${path}\nresponse body: ${res.text}`,
 		);
-		throw new DiscordApiError(res.status, `Discord API ${res.status}: ${detail}`);
+		throw new DiscordApiError(res.status, `Discord API ${res.status}: ${detail}`, res.text);
 		}
 	}
 
