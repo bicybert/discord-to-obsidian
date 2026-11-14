@@ -158,6 +158,15 @@ export class DiscordSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName("Test connection")
+			.setDesc("Debug: runs the channel-list request directly and shows Discord's raw HTTP status and response.")
+			.addButton((button) =>
+				button.setButtonText("Test").onClick(async () => {
+					await this.plugin.testConnection();
+				}),
+			);
+
+		new Setting(containerEl)
 			.setName("Channels")
 			.setDesc("Load the text channels for this server, then toggle which ones to sync.")
 			.addButton((button) =>

@@ -78,6 +78,27 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		new Notice("Sync state cleared. The next sync will re-pull and rewrite the channel notes.");
 	}
 
+	/** Debug: run the exact channel-list request and show the raw status + response body. */
+	async testConnection(): Promise<void> {
+		const { token, guildId } = this.settings;
+		if (!token || !guildId) {
+			new Notice("Set the bot token and server ID first.");
+			return;
+		}
+		try {
+			const res = await requestUrl({
+				url: `https://discord.com/api/v10/guilds/${guildId}/channels`,
+				method: "GET",
+				headers: { Authorization: `Bot ${token}` },
+				throw: false,
+			});
+			console.log(`[discord-to-obsidian] test connection: HTTP ${res.status}\n${res.text}`);
+			new Notice(`HTTP ${res.status}\n\n${res.text.slice(0, 400)}`, 15000);
+		} catch (e) {
+			new Notice(`Request failed before any response: ${e.message}`, 15000);
+		}
+	}
+
 	async syncAll(): Promise<void> {
 		if (!this.settings.token || !this.settings.guildId) {
 			new Notice("Configure your Discord token and server ID in the plugin settings first.");
