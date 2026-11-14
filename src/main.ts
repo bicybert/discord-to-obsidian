@@ -162,7 +162,7 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		}
 	}
 
-	/** Debug: fetch channels for every known server and report pass/fail per server, with IDs and raw response bodies. */
+	/** Debug: fetch channels for every known server, write a copyable report file, and summarize in a Notice. */
 	async diagnoseServers(): Promise<void> {
 		const guilds = Object.entries(this.settings.guilds);
 		if (guilds.length === 0) {
@@ -170,20 +170,36 @@ export default class DiscordToObsidianPlugin extends Plugin {
 			return;
 		}
 		const client = new DiscordClient(this.settings.token);
-		const lines: string[] = [];
+		const lines: string[] = [
+			`# Discord to Obsidian — diagnosis`,
+			`run at: ${new Date().toISOString()}`,
+			`token in use starts: "${this.settings.token.slice(0, 6)}…" (${this.settings.token.length} chars)`,
+			"",
+		];
 		for (const [id, name] of guilds) {
 			try {
 				const channels = await client.listTextChannels(id);
-				lines.push(`✅ ${name} (${id}): OK, ${channels.length} text channels`);
+				lines.push(`- ✅ ${name} (${id}): OK, ${channels.length} text channels`);
 			} catch (e) {
 				const apiErr = e instanceof DiscordApiError ? e : null;
-				const body = apiErr?.body ? `\n    ↳ body: ${apiErr.body.slice(0, 150)}` : "";
+				const status = apiErr ? `HTTP ${apiErr.status}` : "network error";
+				const body = apiErr?.body ?? e.message;
 				lines.push(
-					`❌ ${name} (${id}): ${apiErr ? `HTTP ${apiErr.status}` : e.message}${body}`,
+					`- ❌ ${name} (${id}): ${status}`,
+					`    - raw body: ${body.slice(0, 300)}`,
 				);
 			}
 		}
-		new Notice(lines.join("\n"), 25000);
+
+		const report = lines.join("\n");
+		const reportPath = "Discord debug report.md";
+		const existing = this.app.vault.getAbstractFileByPath(reportPath);
+		if (existing instanceof TFile) {
+			await this.app.vault.modify(existing, report);
+		} else {
+			await this.app.vault.create(reportPath, report);
+		}
+		new Notice("Diagnosis written to 'Discord debug report.md' in your vault root — open and paste it back.", 10000);
 	}
 
 	/** Prove the bot can act in the server: post a test message to the first enabled channel. */
