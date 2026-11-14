@@ -1,0 +1,163 @@
+import { Notice, Plugin, requestUrl, TFile, normalizePath } from "obsidian";
+import { DiscordClient, DiscordMessage } from "./discord";
+import { renderBody, renderNoteHeader, sanitizeFilename } from "./renderer";
+import { DEFAULT_SETTINGS, DiscordSettingTab, DiscordSettings } from "./settings";
+
+/** Hard cap so a long-overdue incremental sync can't run forever. */
+const MAX_MESSAGES_PER_SYNC = 10000;
+
+export default class DiscordToObsidianPlugin extends Plugin {
+	settings: DiscordSettings;
+
+	async onload(): Promise<void> {
+		await this.loadSettings();
+
+		this.addSettingTab(new DiscordSettingTab(this.app, this));
+		this.addRibbonIcon("messages-square", "Sync Discord channels", () => this.syncAll());
+		this.addCommand({
+			id: "sync-discord-channels",
+			name: "Sync selected Discord channels",
+			callback: () => this.syncAll(),
+		});
+	}
+
+	onunload(): void {}
+
+	async loadSettings(): Promise<void> {
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+	}
+
+	async saveSettings(): Promise<void> {
+		await this.saveData(this.settings);
+	}
+
+	async loadChannelList(): Promise<void> {
+		if (!this.settings.token || !this.settings.guildId) {
+			new Notice("Set your bot token and server ID first.");
+			return;
+		}
+		try {
+			const client = new DiscordClient(this.settings.token);
+			const channels = await client.listTextChannels(this.settings.guildId);
+			const next: DiscordSettings["channels"] = {};
+			for (const channel of channels) {
+				next[channel.id] = {
+					name: channel.name,
+					enabled: this.settings.channels[channel.id]?.enabled ?? false,
+				};
+			}
+			this.settings.channels = next;
+			await this.saveSettings();
+			new Notice(`Found ${channels.length} text channels.`);
+		} catch (e) {
+			new Notice(`Could not load channels: ${e.message}`);
+		}
+	}
+
+	async syncAll(): Promise<void> {
+		if (!this.settings.token || !this.settings.guildId) {
+			new Notice("Configure your Discord token and server ID in the plugin settings first.");
+			return;
+		}
+		const selected = Object.entries(this.settings.channels).filter(([, c]) => c.enabled);
+		if (selected.length === 0) {
+			new Notice("No channels selected. Pick some in the plugin settings.");
+			return;
+		}
+
+		const client = new DiscordClient(this.settings.token);
+		const channelNames = new Map<string, string>(
+			Object.entries(this.settings.channels).map(([id, c]) => [id, c.name]),
+		);
+
+		let guildName = "unknown";
+		try {
+			guildName = (await client.getGuild(this.settings.guildId)).name;
+		} catch {
+			// frontmatter-only; don't block the sync over it
+		}
+
+		let done = 0;
+		let totalNew = 0;
+		for (const [channelId, meta] of selected) {
+			done++;
+			new Notice(`Syncing #${meta.name} (${done}/${selected.length})...`);
+			try {
+				const count = await this.syncChannel(client, channelId, meta.name, guildName, channelNames);
+				totalNew += count;
+				if (count > 0) new Notice(`#${meta.name}: saved ${count} new message(s).`);
+			} catch (e) {
+				new Notice(`Failed to sync #${meta.name}: ${e.message}`);
+			}
+		}
+		await this.saveSettings();
+		new Notice(`Discord sync finished — ${totalNew} new message(s) across ${selected.length} channel(s).`);
+	}
+
+	private async syncChannel(
+		client: DiscordClient,
+		channelId: string,
+		channelName: string,
+		guildName: string,
+		channelNames: Map<string, string>,
+	): Promise<number> {
+		const afterId = this.settings.syncState[channelId] ?? null;
+		const messages = await client.fetchMessages(channelId, {
+			afterId,
+			maxMessages: afterId ? MAX_MESSAGES_PER_SYNC : this.settings.messageLimit,
+		});
+		if (messages.length === 0) return 0;
+
+		// Authors we've seen, so @mentions render as @username.
+		const userNames = new Map<string, string>();
+		for (const m of messages) userNames.set(m.author.id, m.author.username);
+
+		// Download attachments — CDN links expire, so they must be saved locally.
+		const attachmentPaths = new Map<string, string>();
+		await this.ensureFolder(this.settings.attachmentsFolder);
+		for (const message of messages) {
+			for (const att of message.attachments) {
+				const path = normalizePath(
+					`${this.settings.attachmentsFolder}/${att.id}-${sanitizeFilename(att.filename)}`,
+				);
+				if (!this.app.vault.getAbstractFileByPath(path)) {
+					const res = await requestUrl(att.url);
+					await this.app.vault.createBinary(path, res.arrayBuffer);
+				}
+				attachmentPaths.set(att.id, path);
+			}
+		}
+
+		await this.ensureFolder(this.settings.outputFolder);
+		const notePath = normalizePath(
+			`${this.settings.outputFolder}/${sanitizeFilename(channelName)}.md`,
+		);
+		const body = renderBody(messages, userNames, channelNames, attachmentPaths);
+		const existing = this.app.vault.getAbstractFileByPath(notePath);
+		if (existing instanceof TFile) {
+			// Append chronologically at the end of the existing note.
+			await this.app.vault.append(existing, "\n\n" + body);
+		} else {
+			await this.app.vault.create(
+				notePath,
+				renderNoteHeader(channelName, guildName, channelId) + body,
+			);
+		}
+
+		// Snowflake of the newest message becomes the resume point.
+		this.settings.syncState[channelId] = messages[messages.length - 1].id;
+		return messages.length;
+	}
+
+	private async ensureFolder(path: string): Promise<void> {
+		const normalized = normalizePath(path);
+		if (!normalized || normalized === "/") return;
+		let current = "";
+		for (const part of normalized.split("/").filter(Boolean)) {
+			current = current ? `${current}/${part}` : part;
+			if (!this.app.vault.getAbstractFileByPath(current)) {
+				await this.app.vault.createFolder(current);
+			}
+		}
+	}
+}
