@@ -1,7 +1,24 @@
 import { Notice, Plugin, requestUrl, TFile, normalizePath } from "obsidian";
-import { DiscordClient, DiscordMessage } from "./discord";
+import { DiscordApiError, DiscordClient, DiscordMessage } from "./discord";
 import { renderBody, renderNoteHeader, sanitizeFilename } from "./renderer";
 import { DEFAULT_SETTINGS, DiscordSettingTab, DiscordSettings } from "./settings";
+
+/** Human-readable hints for common Discord API auth/access errors. */
+function describeApiError(e: unknown): string {
+	if (e instanceof DiscordApiError) {
+		if (e.status === 401) {
+			return "Invalid bot token — check it in the plugin settings.";
+		}
+		if (e.status === 403) {
+			return "The bot can't access this server. Make sure it's been invited (OAuth2 → URL Generator, scope 'bot', permissions: View Channels + Read Message History) and the Server ID is correct.";
+		}
+		if (e.status === 404) {
+			return "Server not found — the Server ID is probably wrong.";
+		}
+		return e.message;
+	}
+	return String(e);
+}
 
 /** Hard cap so a long-overdue incremental sync can't run forever. */
 const MAX_MESSAGES_PER_SYNC = 10000;
@@ -50,7 +67,7 @@ export default class DiscordToObsidianPlugin extends Plugin {
 			await this.saveSettings();
 			new Notice(`Found ${channels.length} text channels.`);
 		} catch (e) {
-			new Notice(`Could not load channels: ${e.message}`);
+			new Notice(`Could not load channels: ${describeApiError(e)}`);
 		}
 	}
 
@@ -94,7 +111,7 @@ export default class DiscordToObsidianPlugin extends Plugin {
 				totalNew += count;
 				if (count > 0) new Notice(`#${meta.name}: saved ${count} new message(s).`);
 			} catch (e) {
-				new Notice(`Failed to sync #${meta.name}: ${e.message}`);
+				new Notice(`Failed to sync #${meta.name}: ${describeApiError(e)}`);
 			}
 		}
 		await this.saveSettings();
