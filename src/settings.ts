@@ -101,6 +101,48 @@ export class DiscordSettingTab extends PluginSettingTab {
 					}),
 			);
 
+		// Channels of the selected server, directly below the picker.
+		const channelEntries = Object.entries(this.plugin.settings.channels).sort((a, b) =>
+			a[1].name.localeCompare(b[1].name),
+		);
+
+		const channelsHeader = new Setting(containerEl)
+			.setName("Channels")
+			.setDesc(
+				channelEntries.length > 0
+					? "Toggle which channels of the selected server to sync."
+					: "Pick a server above — its channels load here automatically.",
+			);
+		if (channelEntries.length > 0) {
+			channelsHeader
+				.addButton((button) =>
+					button.setButtonText("Select all").onClick(async () => {
+						for (const [, channel] of channelEntries) {
+							channel.enabled = true;
+						}
+						await this.plugin.saveSettings();
+						this.display();
+					}),
+				)
+				.addButton((button) =>
+					button.setButtonText("Select none").onClick(async () => {
+						for (const [, channel] of channelEntries) {
+							channel.enabled = false;
+						}
+						await this.plugin.saveSettings();
+						this.display();
+					}),
+				);
+		}
+		for (const [id, channel] of channelEntries) {
+			new Setting(containerEl).setName(`#${channel.name}`).addToggle((toggle) =>
+				toggle.setValue(channel.enabled).onChange(async (value) => {
+					channel.enabled = value;
+					await this.plugin.saveSettings();
+				}),
+			);
+		}
+
 		new Setting(containerEl)
 			.setName("Output folder")
 			.setDesc("Vault folder where channel notes are created.")
@@ -223,30 +265,5 @@ export class DiscordSettingTab extends PluginSettingTab {
 					await this.plugin.sendTestMessage();
 				}),
 			);
-
-		new Setting(containerEl)
-			.setName("Channels")
-			.setDesc("Load the text channels for this server, then toggle which ones to sync.")
-			.addButton((button) =>
-				button
-					.setButtonText("Load channel list")
-					.setCta()
-					.onClick(async () => {
-						await this.plugin.loadChannelList();
-						this.display();
-					}),
-			);
-
-		const entries = Object.entries(this.plugin.settings.channels).sort((a, b) =>
-			a[1].name.localeCompare(b[1].name),
-		);
-		for (const [id, channel] of entries) {
-			new Setting(containerEl).setName(`#${channel.name}`).addToggle((toggle) =>
-				toggle.setValue(channel.enabled).onChange(async (value) => {
-					channel.enabled = value;
-					await this.plugin.saveSettings();
-				}),
-			);
-		}
 	}
 }
