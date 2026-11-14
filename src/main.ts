@@ -93,7 +93,13 @@ export default class DiscordToObsidianPlugin extends Plugin {
 				throw: false,
 			});
 			console.log(`[discord-to-obsidian] test connection: HTTP ${res.status}\n${res.text}`);
-			new Notice(`HTTP ${res.status}\n\n${res.text.slice(0, 400)}`, 15000);
+			new Notice(
+				`GET /guilds/${guildId}/channels\n` +
+					`HTTP ${res.status}\n\n` +
+					`token in use starts: "${token.slice(0, 6)}…" (${token.length} chars)\n\n` +
+					`${res.text.slice(0, 300)}`,
+				20000,
+			);
 		} catch (e) {
 			new Notice(`Request failed before any response: ${e.message}`, 15000);
 		}
