@@ -5,6 +5,7 @@ An Obsidian plugin that syncs Discord channel messages into your vault as markdo
 - **One note per channel** — `Discord/general.md` contains the whole channel
 - **One heading per message** — `## Username — 2026-01-05 14:32` followed by the message content
 - **Attachments are downloaded locally** — Discord CDN links expire, so images and files are saved into your vault and embedded with `![[...]]`
+- **Attachment organization** — customizable root folder, with optional subfolders per channel and per file type (`images/`, `files/`)
 - **Incremental sync** — the plugin remembers the last synced message per channel and only fetches what's new
 - **Handles rate limits** — 429 responses are retried with Discord's `retry_after`
 
@@ -22,7 +23,7 @@ synced: 2026-11-14T14:00:00.000Z
 
 Check out this config
 
-![[Discord/attachments/120938123-image.png]]
+![[Discord/attachments/general/images/120938123-image.png]]
 
 ## bob — 2026-01-04 09:17
 
@@ -31,6 +32,23 @@ Check out this config
 
 nice, that fixed it for me too
 ```
+
+## Attachment storage
+
+Attachments are stored under the **Attachments folder** you set in the plugin settings. With both organization options on (the defaults), the layout is:
+
+```
+Discord/attachments/          ← customizable root
+└── general/                  ← per-channel subfolder (toggleable)
+    ├── images/               ← image attachments (toggleable)
+    │   └── 120938123-image.png
+    └── files/                ← PDFs, zips, everything else (toggleable)
+        └── 120939456-doc.pdf
+```
+
+- **Organize attachments by channel** — each channel gets a subfolder named after it, so you always know where an image came from. Turn it off to keep everything flat in the root folder.
+- **Separate images and files** — splits into `images/` and `files/` based on the attachment's content type. Turn it off to mix everything in one folder.
+- Every file is prefixed with its Discord attachment ID (`120938123-image.png`), so re-syncs never overwrite or duplicate files, even across channels.
 
 ## Setup
 

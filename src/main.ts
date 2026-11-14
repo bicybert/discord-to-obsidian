@@ -113,13 +113,20 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		for (const m of messages) userNames.set(m.author.id, m.author.username);
 
 		// Download attachments — CDN links expire, so they must be saved locally.
+		// Layout: <attachmentsFolder>[/<channelName>][/<images|files>]/<id>-<filename>
+		const baseDir = this.settings.organizeByChannel
+			? `${this.settings.attachmentsFolder}/${sanitizeFilename(channelName)}`
+			: this.settings.attachmentsFolder;
+		const imagesDir = this.settings.organizeByType ? `${baseDir}/images` : baseDir;
+		const filesDir = this.settings.organizeByType ? `${baseDir}/files` : baseDir;
+		await this.ensureFolder(imagesDir);
+		await this.ensureFolder(filesDir);
+
 		const attachmentPaths = new Map<string, string>();
-		await this.ensureFolder(this.settings.attachmentsFolder);
 		for (const message of messages) {
 			for (const att of message.attachments) {
-				const path = normalizePath(
-					`${this.settings.attachmentsFolder}/${att.id}-${sanitizeFilename(att.filename)}`,
-				);
+				const dir = att.content_type?.startsWith("image/") ? imagesDir : filesDir;
+				const path = normalizePath(`${dir}/${att.id}-${sanitizeFilename(att.filename)}`);
 				if (!this.app.vault.getAbstractFileByPath(path)) {
 					const res = await requestUrl(att.url);
 					await this.app.vault.createBinary(path, res.arrayBuffer);

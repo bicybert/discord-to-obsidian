@@ -11,6 +11,10 @@ export interface DiscordSettings {
 	guildId: string;
 	outputFolder: string;
 	attachmentsFolder: string;
+	/** attachments go into a subfolder named after the channel they came from */
+	organizeByChannel: boolean;
+	/** attachments go into images/ or files/ subfolders depending on type */
+	organizeByType: boolean;
 	messageLimit: number;
 	channels: Record<string, ChannelSetting>;
 	/** channel id → newest message id already synced (for incremental syncs) */
@@ -22,6 +26,8 @@ export const DEFAULT_SETTINGS: DiscordSettings = {
 	guildId: "",
 	outputFolder: "Discord",
 	attachmentsFolder: "Discord/attachments",
+	organizeByChannel: true,
+	organizeByType: true,
 	messageLimit: 500,
 	channels: {},
 	syncState: {},
@@ -84,13 +90,41 @@ export class DiscordSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Attachments folder")
-			.setDesc("Where downloaded images and files are stored.")
+			.setDesc("Root vault folder where downloaded images and files are stored.")
 			.addText((text) =>
 				text
 					.setPlaceholder("Discord/attachments")
 					.setValue(this.plugin.settings.attachmentsFolder)
 					.onChange(async (value) => {
 						this.plugin.settings.attachmentsFolder = value.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Organize attachments by channel")
+			.setDesc(
+				"Store each channel's attachments in a subfolder named after the channel, e.g. Discord/attachments/general/...",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.organizeByChannel)
+					.onChange(async (value) => {
+						this.plugin.settings.organizeByChannel = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Separate images and files")
+			.setDesc(
+				"Add an images/ or files/ subfolder depending on attachment type (images vs. PDFs and other files).",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.organizeByType)
+					.onChange(async (value) => {
+						this.plugin.settings.organizeByType = value;
 						await this.plugin.saveSettings();
 					}),
 			);
