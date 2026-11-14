@@ -202,6 +202,15 @@ export class DiscordSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName("Diagnose servers")
+			.setDesc("Debug: fetches channels for every server in the list and reports which ones the bot can read.")
+			.addButton((button) =>
+				button.setButtonText("Diagnose").onClick(async () => {
+					await this.plugin.diagnoseServers();
+				}),
+			);
+
+		new Setting(containerEl)
 			.setName("Send test message")
 			.setDesc("Posts a hello message to your first enabled channel. Needs the Send Messages permission on the bot.")
 			.addButton((button) =>

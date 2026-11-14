@@ -162,6 +162,27 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		}
 	}
 
+	/** Debug: fetch channels for every known server and report pass/fail per server. */
+	async diagnoseServers(): Promise<void> {
+		const guilds = Object.entries(this.settings.guilds);
+		if (guilds.length === 0) {
+			new Notice("Load the server list first.");
+			return;
+		}
+		const client = new DiscordClient(this.settings.token);
+		const lines: string[] = [];
+		for (const [id, name] of guilds) {
+			try {
+				const channels = await client.listTextChannels(id);
+				lines.push(`✅ ${name}: OK (${channels.length} text channels)`);
+			} catch (e) {
+				const status = e instanceof DiscordApiError ? `HTTP ${e.status}` : e.message;
+				lines.push(`❌ ${name}: ${status}`);
+			}
+		}
+		new Notice(lines.join("\n"), 20000);
+	}
+
 	/** Prove the bot can act in the server: post a test message to the first enabled channel. */
 	async sendTestMessage(): Promise<void> {
 		const boot = await this.bootBot();
