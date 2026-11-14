@@ -101,5 +101,11 @@ Optional checks before syncing: **Boot** verifies the token and server access, a
 ## Development
 
 - `npm run dev` — watch mode build
-- `npm run build` — typecheck + production build (`main.js`)
+- `npm run build` — typecheck + production build (`build/` folder)
+- `npm run release [patch|minor|major]` — bump the version, commit, tag, and push; GitHub Actions then builds and publishes a GitHub release automatically
 - Source lives in `src/`: `discord.ts` (API client), `renderer.ts` (markdown generation), `settings.ts`, `main.ts` (sync logic)
+
+## Updating an installed plugin
+
+- **From the community store** (once submitted): updates appear in Obsidian's plugin settings like any other plugin.
+- **Before store submission**: install [BRAT](https://github.com/TfTHacker/obsidian42-brat), add `bicybert/discord-to-obsidian`, and it will pull every new GitHub release automatically. Or manually re-copy the `build/` files.
