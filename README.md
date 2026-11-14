@@ -69,11 +69,11 @@ npm install
 npm run build
 ```
 
-Then copy these files into your vault at `.obsidian/plugins/discord-to-obsidian/`:
+Then copy everything in the `build/` folder into your vault at `.obsidian/plugins/discord-to-obsidian/`:
 
-- `manifest.json`
-- `main.js`
-- `main.css`
+- `build/manifest.json`
+- `build/main.js`
+- `build/main.css`
 
 Enable the plugin in Obsidian's **Settings → Community plugins**.
 

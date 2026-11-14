@@ -2,7 +2,7 @@
 	"name": "discord-to-obsidian",
 	"version": "0.1.0",
 	"description": "Sync Discord channel messages into your vault as markdown notes",
-	"main": "main.js",
+	"main": "build/main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
