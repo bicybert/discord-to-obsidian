@@ -70,12 +70,19 @@ export class DiscordClient {
 	private async request(path: string): Promise<any> {
 		let delay = 1000;
 		for (let attempt = 0; ; attempt++) {
-			const res = await requestUrl({
-				url: `${API_BASE}${path}`,
-				method: "GET",
-				headers: { Authorization: `Bot ${this.token}` },
-				throw: false,
-			});
+			let res;
+			try {
+				res = await requestUrl({
+					url: `${API_BASE}${path}`,
+					method: "GET",
+					headers: { Authorization: `Bot ${this.token}` },
+					throw: false,
+				});
+			} catch (e) {
+				// Network-level failure (never reached Discord) — show it distinctly.
+				console.error(`[discord-to-obsidian] network failure on GET ${path}`, e);
+				throw new DiscordApiError(0, `Network error reaching Discord: ${e.message}`);
+			}
 			if (res.status >= 200 && res.status < 300) {
 				return res.json;
 			}
@@ -88,6 +95,9 @@ export class DiscordClient {
 				continue;
 			}
 			const detail = res.json?.message ?? res.text ?? "unknown error";
+			console.error(
+				`[discord-to-obsidian] ${res.status} on GET ${path}\nresponse body: ${res.text}`,
+			);
 			throw new DiscordApiError(res.status, `Discord API ${res.status}: ${detail}`);
 		}
 	}
