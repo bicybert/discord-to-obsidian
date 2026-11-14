@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type DiscordToObsidianPlugin from "./main";
 
 export interface ChannelSetting {
@@ -163,6 +163,20 @@ export class DiscordSettingTab extends PluginSettingTab {
 			.addButton((button) =>
 				button.setButtonText("Test").onClick(async () => {
 					await this.plugin.testConnection();
+				}),
+			);
+
+		new Setting(containerEl)
+			.setName("Verify bot identity")
+			.setDesc("Fetches the bot's own username from Discord to confirm the token works before syncing.")
+			.addButton((button) =>
+				button.setButtonText("Boot").onClick(async () => {
+					const result = await this.plugin.bootBot();
+					if (result.ok) {
+						new Notice(`Bot verified: ${result.who}`);
+					} else {
+						new Notice(`Boot failed — ${result.error}`);
+					}
 				}),
 			);
 

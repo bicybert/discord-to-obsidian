@@ -15,6 +15,12 @@ function describeApiError(e: unknown): string {
 		if (e.status === 404) {
 			return "Server not found — the Server ID is probably wrong.";
 		}
+		if (e.status === 0) {
+			return "Could not reach Discord at all — check your internet connection.";
+		}
+		if (e.status >= 500) {
+			return `Discord is having server problems (${e.status}). Try again in a moment.`;
+		}
 		return e.message;
 	}
 	return String(e);
@@ -35,6 +41,11 @@ export default class DiscordToObsidianPlugin extends Plugin {
 			id: "sync-discord-channels",
 			name: "Sync selected Discord channels",
 			callback: () => this.syncAll(),
+		});
+		this.addCommand({
+			id: "boot-discord-bot",
+			name: "Verify Discord bot identity",
+			callback: () => this.bootBot(),
 		});
 	}
 
@@ -105,9 +116,32 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		}
 	}
 
+	/**
+	 * Boot step: verify the bot token works by fetching the bot's own identity.
+	 * Returns a result object rather than throwing so callers can branch on it.
+	 */
+	async bootBot(): Promise<{ ok: boolean; who?: string; error?: string }> {
+		const { token } = this.settings;
+		if (!token) {
+			return { ok: false, error: "Set your bot token first." };
+		}
+		try {
+			const me = await new DiscordClient(token).getMe();
+			const who = me.bot ? `${me.username} (bot)` : `${me.username} (user)`;
+			return { ok: true, who };
+		} catch (e) {
+			return { ok: false, error: describeApiError(e) };
+		}
+	}
+
 	async syncAll(): Promise<void> {
 		if (!this.settings.token || !this.settings.guildId) {
 			new Notice("Configure your Discord token and server ID in the plugin settings first.");
+			return;
+		}
+		const boot = await this.bootBot();
+		if (!boot.ok) {
+			new Notice(`Sync aborted — ${boot.error}`);
 			return;
 		}
 		const selected = Object.entries(this.settings.channels).filter(([, c]) => c.enabled);
@@ -179,10 +213,18 @@ export default class DiscordToObsidianPlugin extends Plugin {
 				const dir = att.content_type?.startsWith("image/") ? imagesDir : filesDir;
 				const path = normalizePath(`${dir}/${att.id}-${sanitizeFilename(att.filename)}`);
 				if (!this.app.vault.getAbstractFileByPath(path)) {
-					const res = await requestUrl(att.url);
-					await this.app.vault.createBinary(path, res.arrayBuffer);
+					try {
+						const res = await requestUrl(att.url);
+						await this.app.vault.createBinary(path, res.arrayBuffer);
+						attachmentPaths.set(att.id, path);
+					} catch (e) {
+						// CDN link failed — leave the map unset so the renderer falls
+						// back to a plain live link instead of a broken ![[url]] embed.
+						console.error(`[discord-to-obsidian] failed to download attachment ${att.id}`, e);
+					}
+				} else {
+					attachmentPaths.set(att.id, path);
 				}
-				attachmentPaths.set(att.id, path);
 			}
 		}
 

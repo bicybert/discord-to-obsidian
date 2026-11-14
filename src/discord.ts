@@ -83,27 +83,38 @@ export class DiscordClient {
 				console.error(`[discord-to-obsidian] network failure on GET ${path}`, e);
 				throw new DiscordApiError(0, `Network error reaching Discord: ${e.message}`);
 			}
-			if (res.status >= 200 && res.status < 300) {
-				return res.json;
-			}
-			if (res.status === 429 && attempt < MAX_RETRIES) {
-				const body = res.json ?? {};
-				const retryAfter =
-					typeof body.retry_after === "number" ? body.retry_after * 1000 : delay;
-				await sleep(Math.max(retryAfter, 500) + 250);
-				delay *= 2;
-				continue;
-			}
-			const detail = res.json?.message ?? res.text ?? "unknown error";
-			console.error(
-				`[discord-to-obsidian] ${res.status} on GET ${path}\nresponse body: ${res.text}`,
-			);
-			throw new DiscordApiError(res.status, `Discord API ${res.status}: ${detail}`);
+		if (res.status >= 200 && res.status < 300) {
+			return res.json;
+		}
+		if (res.status === 429 && attempt < MAX_RETRIES) {
+			const body = res.json ?? {};
+			const retryAfter =
+				typeof body.retry_after === "number" ? body.retry_after * 1000 : delay;
+			await sleep(Math.max(retryAfter, 500) + 250);
+			delay *= 2;
+			continue;
+		}
+		if (res.status >= 500 && attempt < MAX_RETRIES) {
+			// Discord sometimes 502/503s transiently — retry with backoff.
+			await sleep(delay);
+			delay *= 2;
+			continue;
+		}
+		const detail = res.json?.message ?? res.text ?? "unknown error";
+		console.error(
+			`[discord-to-obsidian] ${res.status} on GET ${path}\nresponse body: ${res.text}`,
+		);
+		throw new DiscordApiError(res.status, `Discord API ${res.status}: ${detail}`);
 		}
 	}
 
 	async getGuild(guildId: string): Promise<DiscordGuild> {
 		return this.request(`/guilds/${guildId}`);
+	}
+
+	/** Who is this token? Returns the bot's username + id. */
+	async getMe(): Promise<DiscordUser> {
+		return this.request("/users/@me");
 	}
 
 	async listTextChannels(guildId: string): Promise<DiscordChannel[]> {

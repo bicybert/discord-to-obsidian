@@ -1,12 +1,15 @@
 import type { DiscordMessage } from "./discord";
 
 export function sanitizeFilename(name: string): string {
-	return (
+	// Windows reserved names (CON, PRN, AUX, NUL, COM1..LPT9) — append an
+	// underscore so the filesystem doesn't reject them.
+	const reserved = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
+	const cleaned =
 		name
 			.replace(/[\\/:*?"<>|#^[\]]/g, "-")
 			.replace(/\s+/g, " ")
-			.trim() || "unnamed"
-	);
+			.trim() || "unnamed";
+	return reserved.test(cleaned) ? `${cleaned}_` : cleaned;
 }
 
 export function formatTimestamp(iso: string): string {
@@ -83,7 +86,7 @@ export function renderMessageBlock(
 }
 
 export function renderNoteHeader(channelName: string, guildName: string, channelId: string): string {
-	const escape = (s: string) => s.replace(/"/g, '\\"');
+	const escape = (s: string) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 	return [
 		"---",
 		`channel: "${escape(channelName)}"`,
