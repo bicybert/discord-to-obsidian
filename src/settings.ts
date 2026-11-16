@@ -47,7 +47,7 @@ export class DiscordSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.createEl("h2", { text: "Discord to Obsidian" });
+		new Setting(containerEl).setName("Discord to Obsidian").setHeading();
 
 		new Setting(containerEl)
 			.setName("Bot token")

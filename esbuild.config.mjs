@@ -39,7 +39,9 @@ const context = await esbuild.context({
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
 	outfile: `${BUILD_DIR}/main.js`,
-	minify: prod,
+	// Obsidian's plugin policies prohibit minified code — reviewers must be able
+	// to read main.js, so never enable minification here.
+	minify: false,
 });
 
 async function copyPluginFiles() {

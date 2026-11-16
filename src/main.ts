@@ -230,7 +230,7 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		const reportPath = "Discord debug report.md";
 		const existing = this.app.vault.getAbstractFileByPath(reportPath);
 		if (existing instanceof TFile) {
-			await this.app.vault.modify(existing, report);
+			await this.app.vault.process(existing, () => report);
 		} else {
 			await this.app.vault.create(reportPath, report);
 		}
@@ -367,13 +367,13 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		if (afterId === null) {
 			// Full re-sync: rewrite the whole note (fresh content, no duplicates).
 			if (existing instanceof TFile) {
-				await this.app.vault.modify(existing, header + body);
+				await this.app.vault.process(existing, () => header + body);
 			} else {
 				await this.app.vault.create(notePath, header + body);
 			}
 		} else if (existing instanceof TFile) {
 			// Incremental sync: append chronologically at the end of the note.
-			await this.app.vault.append(existing, "\n\n" + body);
+			await this.app.vault.process(existing, (data) => data + "\n\n" + body);
 		} else {
 			// State existed but the note is gone — rebuild it from this point forward.
 			await this.app.vault.create(notePath, header + body);
