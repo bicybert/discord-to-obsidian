@@ -348,7 +348,7 @@ export default class DiscordToObsidianPlugin extends Plugin {
 					} catch (e) {
 						// CDN link failed — leave the map unset so the renderer falls
 						// back to a plain live link instead of a broken ![[url]] embed.
-						console.error(`[discord-to-obsidian] failed to download attachment ${att.id}`, e);
+						console.error(`[discord-channel-sync] failed to download attachment ${att.id}`, e);
 					}
 				} else {
 					attachmentPaths.set(att.id, path);

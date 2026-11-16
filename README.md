@@ -71,7 +71,7 @@ npm install
 npm run build
 ```
 
-Then copy everything in the `build/` folder into your vault at `.obsidian/plugins/discord-to-obsidian/`:
+Then copy everything in the `build/` folder into your vault at `.obsidian/plugins/discord-channel-sync/`:
 
 - `build/manifest.json`
 - `build/main.js`
@@ -104,6 +104,15 @@ Optional checks before syncing: **Boot** verifies the token and server access, a
 - `npm run build` — typecheck + production build (`build/` folder)
 - `npm run release [patch|minor|major]` — bump the version, commit, tag, and push; GitHub Actions then builds and publishes a GitHub release automatically
 - Source lives in `src/`: `discord.ts` (API client), `renderer.ts` (markdown generation), `settings.ts`, `main.ts` (sync logic)
+
+## Note for existing users (v0.2.0)
+
+The plugin ID changed from `discord-to-obsidian` to `discord-channel-sync` in v0.2.0 (required for community store submission — IDs cannot contain "obsidian"). Obsidian treats these as two different plugins:
+
+1. Install the new version (via BRAT or manually into `.obsidian/plugins/discord-channel-sync/`).
+2. To keep your token and channel selection: with Obsidian closed, copy `data.json` from the old plugin folder into the new one.
+3. Disable or remove the old plugin.
+
 
 ## Updating an installed plugin
 

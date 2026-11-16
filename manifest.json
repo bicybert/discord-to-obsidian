@@ -1,5 +1,5 @@
 {
-	"id": "discord-to-obsidian",
+	"id": "discord-channel-sync",
 	"name": "Discord Channel Sync",
 	"version": "0.1.1",
 	"minAppVersion": "1.4.0",

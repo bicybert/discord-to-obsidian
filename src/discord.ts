@@ -90,7 +90,7 @@ export class DiscordClient {
 				});
 			} catch (e) {
 				// Network-level failure (never reached Discord) — show it distinctly.
-				console.error(`[discord-to-obsidian] network failure on GET ${path}`, e);
+				console.error(`[discord-channel-sync] network failure on GET ${path}`, e);
 				throw new DiscordApiError(0, `Network error reaching Discord: ${e.message}`);
 			}
 		if (res.status >= 200 && res.status < 300) {
@@ -112,7 +112,7 @@ export class DiscordClient {
 		}
 		const detail = res.json?.message ?? res.text ?? "unknown error";
 		console.error(
-			`[discord-to-obsidian] ${res.status} on GET ${path}\nresponse body: ${res.text}`,
+			`[discord-channel-sync] ${res.status} on GET ${path}\nresponse body: ${res.text}`,
 		);
 		throw new DiscordApiError(res.status, `Discord API ${res.status}: ${detail}`, res.text);
 		}

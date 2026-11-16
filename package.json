@@ -1,5 +1,5 @@
 {
-	"name": "discord-to-obsidian",
+	"name": "discord-channel-sync",
 	"version": "0.1.1",
 	"description": "Sync Discord channel messages into your vault as markdown notes",
 	"main": "build/main.js",
