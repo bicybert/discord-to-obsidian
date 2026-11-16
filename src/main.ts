@@ -206,7 +206,7 @@ export default class DiscordToObsidianPlugin extends Plugin {
 		}
 		const client = new DiscordClient(this.settings.token);
 		const lines: string[] = [
-			`# Discord to Obsidian — diagnosis`,
+			`# Discord Channel Sync — diagnosis`,
 			`run at: ${new Date().toISOString()}`,
 			`token in use starts: "${this.settings.token.slice(0, 6)}…" (${this.settings.token.length} chars)`,
 			"",
@@ -254,7 +254,7 @@ export default class DiscordToObsidianPlugin extends Plugin {
 			const client = new DiscordClient(this.settings.token);
 			await client.sendMessage(
 				channelId,
-				`✅ Discord to Obsidian test message — ${new Date().toLocaleString()}`,
+				`✅ Discord Channel Sync test message — ${new Date().toLocaleString()}`,
 			);
 			new Notice(`Test message posted to #${meta.name}. The bot is fully operational.`);
 		} catch (e) {

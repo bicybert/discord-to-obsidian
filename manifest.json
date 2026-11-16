@@ -1,6 +1,6 @@
 {
 	"id": "discord-to-obsidian",
-	"name": "Discord to Obsidian",
+	"name": "Discord Channel Sync",
 	"version": "0.1.0",
 	"minAppVersion": "1.4.0",
 	"description": "Sync Discord channel messages into your vault as Markdown notes. One note per channel, one heading per message.",

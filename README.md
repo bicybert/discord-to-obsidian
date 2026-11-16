@@ -1,4 +1,4 @@
-# Discord to Obsidian
+# Discord Channel Sync
 
 An Obsidian plugin that syncs Discord channel messages into your vault as markdown notes.
 
