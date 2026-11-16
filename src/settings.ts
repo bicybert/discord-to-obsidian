@@ -47,7 +47,6 @@ export class DiscordSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		new Setting(containerEl).setName("Discord Channel Sync").setHeading();
 
 		new Setting(containerEl)
 			.setName("Bot token")

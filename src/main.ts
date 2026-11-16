@@ -187,14 +187,6 @@ export default class DiscordToObsidianPlugin extends Plugin {
 				'Then come back and click "Load server list".',
 				30000,
 			);
-			// Try opening the portal directly; fall back to just showing the notice.
-			try {
-				// obsidian's openExternal is the supported way to open URLs.
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				(this.app as any).openExternal?.(portalUrl);
-			} catch {
-				/* ignore — the notice above is enough */
-			}
 		}
 
 	/** Debug: fetch channels for every known server, write a copyable report file, and summarize in a Notice. */
