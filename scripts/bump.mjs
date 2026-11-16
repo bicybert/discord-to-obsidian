@@ -42,7 +42,7 @@ writeFileSync("package.json", JSON.stringify(pkg, null, "\t") + "\n");
 writeFileSync("versions.json", JSON.stringify(versions, null, "\t") + "\n");
 
 execSync(
-	`git add -A && git commit -m "Release ${next}" && git tag v${next} && git push origin main --tags`,
+	`git add -A && git commit -m "Release ${next}" && git tag ${next} && git push origin main --tags`,
 	{ stdio: "inherit" },
 );
 
