@@ -1,6 +1,6 @@
 {
 	"name": "discord-channel-sync",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "Sync Discord channel messages into your vault as markdown notes",
 	"main": "build/main.js",
 	"scripts": {

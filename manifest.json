@@ -1,8 +1,8 @@
 {
 	"id": "discord-channel-sync",
 	"name": "Discord Channel Sync",
-	"version": "0.2.1",
-	"minAppVersion": "1.4.0",
+	"version": "0.2.2",
+	"minAppVersion": "1.13.0",
 	"description": "Sync Discord channel messages into your vault as Markdown notes. One note per channel, one heading per message.",
 	"author": "bicybert",
 	"isDesktopOnly": false
