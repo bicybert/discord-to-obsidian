@@ -1,7 +1,6 @@
 import esbuild from "esbuild";
 import process from "process";
 import { copyFile, mkdir } from "fs/promises";
-import builtins from "builtin-modules";
 
 const BUILD_DIR = "build";
 
@@ -31,7 +30,6 @@ const context = await esbuild.context({
 		"@lezer/common",
 		"@lezer/highlight",
 		"@lezer/lr",
-		...builtins,
 	],
 	format: "cjs",
 	target: "es2020",

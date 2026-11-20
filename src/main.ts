@@ -1,5 +1,5 @@
 import { Notice, Plugin, requestUrl, TFile, normalizePath } from "obsidian";
-import { DiscordApiError, DiscordClient, DiscordMessage } from "./discord";
+import { DiscordApiError, DiscordClient } from "./discord";
 import { renderBody, renderNoteHeader, sanitizeFilename } from "./renderer";
 import { DEFAULT_SETTINGS, DiscordSettingTab, DiscordSettings } from "./settings";
 
@@ -57,7 +57,8 @@ export default class DiscordToObsidianPlugin extends Plugin {
 	onunload(): void {}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const data = (await this.loadData()) as Partial<DiscordSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
 	}
 
 	async saveSettings(): Promise<void> {
@@ -210,7 +211,8 @@ export default class DiscordToObsidianPlugin extends Plugin {
 			} catch (e) {
 				const apiErr = e instanceof DiscordApiError ? e : null;
 				const status = apiErr ? `HTTP ${apiErr.status}` : "network error";
-				const body = apiErr?.body ?? e.message;
+				const body =
+					apiErr?.body ?? (e as { message?: string }).message ?? "unknown error";
 				lines.push(
 					`- ❌ ${name} (${id}): ${status}`,
 					`    - raw body: ${body.slice(0, 300)}`,

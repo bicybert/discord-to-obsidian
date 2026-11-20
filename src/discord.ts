@@ -61,7 +61,7 @@ export class DiscordApiError extends Error {
 }
 
 function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+	return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 /** Snowflakes are 64-bit ints, so they must be compared numerically, not lexically. */
@@ -72,10 +72,10 @@ export function compareSnowflakes(a: string, b: string): number {
 export class DiscordClient {
 	constructor(private token: string) {}
 
-	private async request(
+	private async request<T = unknown>(
 		path: string,
 		opts: { method?: string; body?: unknown } = {},
-	): Promise<any> {
+	): Promise<T> {
 		let delay = 1000;
 		for (let attempt = 0; ; attempt++) {
 			let res;
@@ -94,10 +94,10 @@ export class DiscordClient {
 				throw new DiscordApiError(0, `Network error reaching Discord: ${e.message}`);
 			}
 		if (res.status >= 200 && res.status < 300) {
-			return res.json;
+			return res.json as T;
 		}
 		if (res.status === 429 && attempt < MAX_RETRIES) {
-			const body = res.json ?? {};
+			const body = (res.json ?? {}) as Record<string, unknown>;
 			const retryAfter =
 				typeof body.retry_after === "number" ? body.retry_after * 1000 : delay;
 			await sleep(Math.max(retryAfter, 500) + 250);
@@ -110,7 +110,9 @@ export class DiscordClient {
 			delay *= 2;
 			continue;
 		}
-		const detail = res.json?.message ?? res.text ?? "unknown error";
+		const detail = (res.json as { message?: string } | undefined)?.message ??
+			res.text ??
+			"unknown error";
 		console.error(
 			`[discord-channel-sync] ${res.status} on GET ${path}\nresponse body: ${res.text}`,
 		);
@@ -119,29 +121,31 @@ export class DiscordClient {
 	}
 
 	async getGuild(guildId: string): Promise<DiscordGuild> {
-		return this.request(`/guilds/${guildId}`);
+		return this.request<DiscordGuild>(`/guilds/${guildId}`);
 	}
 
 	/** All servers the bot has been invited to. */
 	async listGuilds(): Promise<DiscordGuild[]> {
-		return this.request("/users/@me/guilds");
+		return this.request<DiscordGuild[]>("/users/@me/guilds");
 	}
 
 	/** Who is this token? Returns the bot's username + id. */
 	async getMe(): Promise<DiscordUser> {
-		return this.request("/users/@me");
+		return this.request<DiscordUser>("/users/@me");
 	}
 
 	/** Post a message to a channel (needs the Send Messages permission). */
 	async sendMessage(channelId: string, content: string): Promise<DiscordMessage> {
-		return this.request(`/channels/${channelId}/messages`, {
+		return this.request<DiscordMessage>(`/channels/${channelId}/messages`, {
 			method: "POST",
 			body: { content },
 		});
 	}
 
 	async listTextChannels(guildId: string): Promise<DiscordChannel[]> {
-		const channels: DiscordChannel[] = await this.request(`/guilds/${guildId}/channels`);
+		const channels: DiscordChannel[] = await this.request<DiscordChannel[]>(
+			`/guilds/${guildId}/channels`,
+		);
 		return channels
 			.filter((c) => c.type === 0) // GUILD_TEXT only
 			.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
@@ -168,7 +172,7 @@ export class DiscordClient {
 			if (goingForward && cursor) q.set("after", cursor);
 			if (!goingForward && cursor) q.set("before", cursor);
 
-			const page: DiscordMessage[] = await this.request(
+			const page: DiscordMessage[] = await this.request<DiscordMessage[]>(
 				`/channels/${channelId}/messages?${q.toString()}`,
 			);
 			if (page.length === 0) break;

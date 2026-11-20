@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, SettingDefinitionAction, SettingDefinitionControl, SettingDefinitionGroup, SettingDefinitionItem, SettingDropdownControl, SettingFolderControl, SettingNumberControl, SettingTextControl, SettingToggleControl } from "obsidian";
 import type DiscordToObsidianPlugin from "./main";
 
 export interface ChannelSetting {
@@ -44,216 +44,240 @@ export class DiscordSettingTab extends PluginSettingTab {
 		super(app, plugin);
 	}
 
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
+	getControlValue(key: string): unknown {
+		if (key.startsWith("channel:")) {
+			const channelId = key.slice("channel:".length);
+			return this.plugin.settings.channels[channelId]?.enabled ?? false;
+		}
+		return super.getControlValue(key);
+	}
 
-		new Setting(containerEl)
-			.setName("Bot token")
-			.setDesc("Discord bot token. Stored locally in this vault's data.json — never commit it.")
-			.addText((text) => {
-				text
-					.setPlaceholder("MTIzNDU2Nzg5...")
-					.setValue(this.plugin.settings.token)
-					.onChange(async (value) => {
-						this.plugin.settings.token = value.trim();
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.type = "password";
-			})
-			.addButton((button) =>
-				button.setButtonText("Invite bot").setCta().onClick(async () => {
-					await this.plugin.inviteBot();
-				}),
-			);
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		const settings = this.plugin.settings;
+		if (key.startsWith("channel:")) {
+			const channelId = key.slice("channel:".length);
+			const channel = settings.channels[channelId];
+			if (channel) {
+				channel.enabled = Boolean(value);
+			}
+			await this.plugin.saveSettings();
+			return;
+		}
+		if (key === "guildId") {
+			settings.guildId = value as string;
+			settings.channels = {};
+			await this.plugin.saveSettings();
+			await this.plugin.loadChannelList();
+			this.update();
+			return;
+		}
+		await super.setControlValue(key, value);
+	}
 
-		new Setting(containerEl)
-			.setName("Server")
-			.setDesc("Load the servers the bot is in, then pick one — the channel list loads automatically.")
-			.addDropdown((dropdown) => {
-				const guilds = Object.entries(this.plugin.settings.guilds);
-				dropdown.addOption("", "— pick a server —");
-				for (const [id, name] of guilds) {
-					dropdown.addOption(id, name);
-				}
-				dropdown
-					.setValue(this.plugin.settings.guildId)
-					.setDisabled(guilds.length === 0)
-					.onChange(async (id) => {
-						if (!id || id === this.plugin.settings.guildId) return;
-						// Switching servers resets the channel selection.
-						this.plugin.settings.guildId = id;
-						this.plugin.settings.channels = {};
-						await this.plugin.saveSettings();
-						new Notice("Loading channels…");
-						await this.plugin.loadChannelList();
-						this.display();
-					});
-			})
-			.addButton((button) =>
-				button
-					.setButtonText("Load server list")
-					.setCta()
-					.onClick(async () => {
-						await this.plugin.loadServerList();
-						this.display();
-					}),
-			);
+	private channelToggle(channelId: string, channel: ChannelSetting): SettingDefinitionControl {
+		return {
+			name: `#${channel.name}`,
+			control: {
+				type: "toggle",
+				key: `channel:${channelId}`,
+				defaultValue: channel.enabled,
+			},
+		};
+	}
 
-		// Channels of the selected server, directly below the picker.
-		const channelEntries = Object.entries(this.plugin.settings.channels).sort((a, b) =>
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		const settings = this.plugin.settings;
+		const guilds = Object.entries(settings.guilds);
+		const channelEntries = Object.entries(settings.channels).sort((a, b) =>
 			a[1].name.localeCompare(b[1].name),
 		);
 
-		const channelsHeader = new Setting(containerEl)
-			.setName("Channels")
-			.setDesc(
-				channelEntries.length > 0
-					? "Toggle which channels of the selected server to sync."
-					: "Pick a server above — its channels load here automatically.",
-			);
-		if (channelEntries.length > 0) {
-			channelsHeader
-				.addButton((button) =>
-					button.setButtonText("Select all").onClick(async () => {
-						for (const [, channel] of channelEntries) {
-							channel.enabled = true;
-						}
-						await this.plugin.saveSettings();
-						this.display();
-					}),
-				)
-				.addButton((button) =>
-					button.setButtonText("Select none").onClick(async () => {
-						for (const [, channel] of channelEntries) {
-							channel.enabled = false;
-						}
-						await this.plugin.saveSettings();
-						this.display();
-					}),
-				);
-		}
-		for (const [id, channel] of channelEntries) {
-			new Setting(containerEl).setName(`#${channel.name}`).addToggle((toggle) =>
-				toggle.setValue(channel.enabled).onChange(async (value) => {
-					channel.enabled = value;
-					await this.plugin.saveSettings();
-				}),
-			);
+		const guildOptions: Record<string, string> = { "": "— pick a server —" };
+		for (const [id, name] of guilds) {
+			guildOptions[id] = name;
 		}
 
-		new Setting(containerEl)
-			.setName("Output folder")
-			.setDesc("Vault folder where channel notes are created.")
-			.addText((text) =>
-				text
-					.setPlaceholder("Discord")
-					.setValue(this.plugin.settings.outputFolder)
-					.onChange(async (value) => {
-						this.plugin.settings.outputFolder = value.trim();
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Attachments folder")
-			.setDesc("Root vault folder where downloaded images and files are stored.")
-			.addText((text) =>
-				text
-					.setPlaceholder("Discord/attachments")
-					.setValue(this.plugin.settings.attachmentsFolder)
-					.onChange(async (value) => {
-						this.plugin.settings.attachmentsFolder = value.trim();
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Organize attachments by channel")
-			.setDesc(
-				"Store each channel's attachments in a subfolder named after the channel, e.g. Discord/attachments/general/...",
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.organizeByChannel)
-					.onChange(async (value) => {
-						this.plugin.settings.organizeByChannel = value;
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Separate images and files")
-			.setDesc(
-				"Add an images/ or files/ subfolder depending on attachment type (images vs. PDFs and other files).",
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.organizeByType)
-					.onChange(async (value) => {
-						this.plugin.settings.organizeByType = value;
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Initial message limit")
-			.setDesc("How many messages per channel to fetch on the very first sync. Later syncs only fetch new messages.")
-			.addText((text) =>
-				text
-					.setPlaceholder("500")
-					.setValue(String(this.plugin.settings.messageLimit))
-					.onChange(async (value) => {
-						const parsed = Number.parseInt(value, 10);
-						this.plugin.settings.messageLimit = Number.isNaN(parsed) ? 500 : parsed;
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Reset sync state")
-			.setDesc(
-				"Forget which messages were already synced. The next sync re-pulls everything and overwrites the channel notes (attachments are kept).",
-			)
-			.addButton((button) =>
-				button
-					.setButtonText("Reset")
-					.setWarning()
-					.onClick(async () => {
-						await this.plugin.resetSyncState();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Verify bot identity")
-			.setDesc("Checks the token works AND that the bot can see this server. Shows the bot's Discord user ID so you can match it to the member list.")
-			.addButton((button) =>
-				button.setButtonText("Boot").onClick(async () => {
-					const result = await this.plugin.bootBot();
-					if (result.ok) {
-						new Notice(`Bot verified: ${result.who} (ID ${result.id}) — can access "${result.guild}"`);
-					} else {
-						new Notice(`Boot failed — ${result.error}`);
-					}
-				}),
-			);
-
-		new Setting(containerEl)
-			.setName("Diagnose servers")
-			.setDesc("Debug: fetches channels for every server in the list and reports which ones the bot can read.")
-			.addButton((button) =>
-				button.setButtonText("Diagnose").onClick(async () => {
-					await this.plugin.diagnoseServers();
-				}),
-			);
-
-		new Setting(containerEl)
-			.setName("Send test message")
-			.setDesc("Posts a hello message to your first enabled channel. Needs the Send Messages permission on the bot.")
-			.addButton((button) =>
-				button.setButtonText("Send").onClick(async () => {
-					await this.plugin.sendTestMessage();
-				}),
-			);
+		return [
+			{
+				type: "group",
+				heading: "Connection",
+				items: [
+					{
+						name: "Bot token",
+						desc: "Discord bot token. Stored locally in this vault's data.json — never commit it.",
+						control: {
+							type: "text",
+							key: "token",
+							placeholder: "MTIzNDU2Nzg5...",
+							defaultValue: "",
+						} as SettingTextControl,
+					},
+					{
+						name: "Invite bot",
+						desc: "Open the Discord Developer Portal to invite the bot to your server.",
+						action: () => {
+							void this.plugin.inviteBot();
+						},
+					},
+					{
+						name: "Server",
+						desc: "Load the servers the bot is in, then pick one — the channel list loads automatically.",
+						control: {
+							type: "dropdown",
+							key: "guildId",
+							options: guildOptions,
+							defaultValue: "",
+							disabled: guilds.length === 0,
+						} as SettingDropdownControl,
+					},
+					{
+						name: "Load server list",
+						desc: "Fetch the servers the bot is in and auto-select one.",
+						action: async () => {
+							await this.plugin.loadServerList();
+							this.update();
+						},
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: "Channels",
+				desc:
+					channelEntries.length > 0
+						? "Toggle which channels of the selected server to sync."
+						: "Pick a server above — its channels load here automatically.",
+				visible: guilds.length > 0,
+				items: [
+					...(channelEntries.length > 0
+						? [
+								{
+									name: "Select all",
+									action: async () => {
+										for (const [, channel] of channelEntries) {
+											channel.enabled = true;
+										}
+										await this.plugin.saveSettings();
+										this.update();
+									},
+								},
+								{
+									name: "Select none",
+									action: async () => {
+										for (const [, channel] of channelEntries) {
+											channel.enabled = false;
+										}
+										await this.plugin.saveSettings();
+										this.update();
+									},
+								},
+						  ]
+						: []),
+					...channelEntries.map(([id, channel]) => this.channelToggle(id, channel)),
+				],
+			},
+			{
+				type: "group",
+				heading: "Storage",
+				items: [
+					{
+						name: "Output folder",
+						desc: "Vault folder where channel notes are created.",
+						control: {
+							type: "folder",
+							key: "outputFolder",
+							placeholder: "Discord",
+							defaultValue: "Discord",
+						} as SettingFolderControl,
+					},
+					{
+						name: "Attachments folder",
+						desc: "Root vault folder where downloaded images and files are stored.",
+						control: {
+							type: "folder",
+							key: "attachmentsFolder",
+							placeholder: "Discord/attachments",
+							defaultValue: "Discord/attachments",
+						} as SettingFolderControl,
+					},
+					{
+						name: "Organize attachments by channel",
+						desc:
+							"Store each channel's attachments in a subfolder named after the channel, e.g. Discord/attachments/general/...",
+						control: {
+							type: "toggle",
+							key: "organizeByChannel",
+							defaultValue: true,
+						} as SettingToggleControl,
+					},
+					{
+						name: "Separate images and files",
+						desc:
+							"Add an images/ or files/ subfolder depending on attachment type (images vs. PDFs and other files).",
+						control: {
+							type: "toggle",
+							key: "organizeByType",
+							defaultValue: true,
+						} as SettingToggleControl,
+					},
+					{
+						name: "Initial message limit",
+						desc:
+							"How many messages per channel to fetch on the very first sync. Later syncs only fetch new messages.",
+						control: {
+							type: "number",
+							key: "messageLimit",
+							placeholder: "500",
+							defaultValue: 500,
+						} as SettingNumberControl,
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: "Maintenance",
+				items: [
+					{
+						name: "Reset sync state",
+						desc:
+							"Forget which messages were already synced. The next sync re-pulls everything and overwrites the channel notes (attachments are kept).",
+						action: async () => {
+							await this.plugin.resetSyncState();
+						},
+					},
+					{
+						name: "Verify bot identity",
+						desc:
+							"Checks the token works AND that the bot can see this server. Shows the bot's Discord user ID so you can match it to the member list.",
+						action: async () => {
+							const result = await this.plugin.bootBot();
+							if (result.ok) {
+								new Notice(
+									`Bot verified: ${result.who} (ID ${result.id}) — can access "${result.guild}"`,
+								);
+							} else {
+								new Notice(`Boot failed — ${result.error}`);
+							}
+						},
+					},
+					{
+						name: "Diagnose servers",
+						desc:
+							"Debug: fetches channels for every server in the list and reports which ones the bot can read.",
+						action: async () => {
+							await this.plugin.diagnoseServers();
+						},
+					},
+					{
+						name: "Send test message",
+						desc:
+							"Posts a hello message to your first enabled channel. Needs the Send Messages permission on the bot.",
+						action: async () => {
+							await this.plugin.sendTestMessage();
+						},
+					},
+				],
+			},
+		];
 	}
 }
